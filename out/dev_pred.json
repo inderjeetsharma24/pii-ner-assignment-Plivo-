@@ -2,33 +2,39 @@
   "utt_0101": [
     {
       "start": 12,
-      "end": 49,
-      "label": "EMAIL",
+      "end": 29,
+      "label": "PERSON_NAME",
       "pii": true
     },
     {
-      "start": 69,
-      "end": 88,
-      "label": "CREDIT_CARD",
+      "start": 34,
+      "end": 49,
+      "label": "PERSON_NAME",
+      "pii": true
+    },
+    {
+      "start": 33,
+      "end": 55,
+      "label": "EMAIL",
       "pii": true
     }
   ],
   "utt_0102": [
     {
-      "start": 13,
-      "end": 23,
+      "start": 14,
+      "end": 24,
       "label": "PHONE",
       "pii": true
     },
     {
-      "start": 42,
-      "end": 48,
+      "start": 40,
+      "end": 46,
       "label": "CITY",
       "pii": false
     },
     {
-      "start": 70,
-      "end": 80,
+      "start": 67,
+      "end": 77,
       "label": "DATE",
       "pii": true
     }

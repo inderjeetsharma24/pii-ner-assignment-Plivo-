@@ -1,6 +1,7 @@
 import json
 import random
 import re
+from collections import Counter
 from typing import List, Dict, Any
 from torch.utils.data import Dataset
 
@@ -31,11 +32,8 @@ class PIIDataset(Dataset):
                 text = obj["text"]
                 entities = obj.get("entities", [])
                 
-                # Original sample (keep as-is)
-                augmented.append(obj.copy())
-                
-                # 1. Simple duplication (5x)
-                for _ in range(5):
+                # Original sample (keep as-is) - add 3 copies
+                for _ in range(3):
                     augmented.append(obj.copy())
                 
                 # 2. Pattern variations for phone numbers
@@ -145,32 +143,47 @@ class PIIDataset(Dataset):
                                 new_entities.append(new_e)
                             augmented.append({"id": obj["id"] + f"_name_{variant[:5]}", "text": new_text, "entities": new_entities})
                 
-                # 6. Pattern variations for dates
-                for entity in entities:
-                    if entity["label"] == "DATE":
-                        date_text = text[entity["start"]:entity["end"]]
-                        # Generate variations with different date formats
-                        date_variants = [
-                            "01 02 2024",
-                            "15 03 2025",
-                            "31 12 2023",
-                            "01-02-2024",
-                            "2024 01 02"
-                        ]
-                        for variant in date_variants[:3]:  # Use 3 variants
-                            new_text = text[:entity["start"]] + variant + text[entity["end"]:]
-                            offset = len(variant) - (entity["end"] - entity["start"])
-                            new_entities = []
-                            for e in entities:
-                                new_e = e.copy()
-                                if e["start"] > entity["end"]:
-                                    new_e["start"] += offset
-                                    new_e["end"] += offset
-                                elif e["start"] >= entity["start"]:
-                                    new_e["start"] = entity["start"]
-                                    new_e["end"] = entity["start"] + len(variant)
-                                new_entities.append(new_e)
-                            augmented.append({"id": obj["id"] + f"_date_{variant[:5]}", "text": new_text, "entities": new_entities})
+                # 6. Pattern variations for dates (also add DATE entities to samples that don't have them)
+                has_date = any(e["label"] == "DATE" for e in entities)
+                if has_date:
+                    for entity in entities:
+                        if entity["label"] == "DATE":
+                            date_text = text[entity["start"]:entity["end"]]
+                            # Generate variations with different date formats
+                            date_variants = [
+                                "01 02 2024",
+                                "15 03 2025",
+                                "31 12 2023",
+                                "01-02-2024",
+                                "2024 01 02"
+                            ]
+                            for variant in date_variants[:3]:  # Use 3 variants
+                                new_text = text[:entity["start"]] + variant + text[entity["end"]:]
+                                offset = len(variant) - (entity["end"] - entity["start"])
+                                new_entities = []
+                                for e in entities:
+                                    new_e = e.copy()
+                                    if e["start"] > entity["end"]:
+                                        new_e["start"] += offset
+                                        new_e["end"] += offset
+                                    elif e["start"] >= entity["start"]:
+                                        new_e["start"] = entity["start"]
+                                        new_e["end"] = entity["start"] + len(variant)
+                                    new_entities.append(new_e)
+                                augmented.append({"id": obj["id"] + f"_date_{variant[:5]}", "text": new_text, "entities": new_entities})
+                else:
+                    # Add DATE entity variations to samples without dates (to help model learn DATE pattern)
+                    # Insert date at end of sentence or after other entities
+                    date_variants = [
+                        (" and i will travel on 01 02 2024", len(text), len(text) + 33, "01 02 2024"),
+                        (" scheduled for 15 03 2025", len(text), len(text) + 25, "15 03 2025"),
+                        (" on 31 12 2023", len(text), len(text) + 14, "31 12 2023"),
+                    ]
+                    for suffix, date_start, date_end, date_text in date_variants[:2]:  # Add 2 date variations
+                        new_text = text + suffix
+                        new_entities = [e.copy() for e in entities]  # Copy existing entities
+                        new_entities.append({"start": date_start, "end": date_end, "label": "DATE"})
+                        augmented.append({"id": obj["id"] + f"_add_date_{date_text[:5]}", "text": new_text, "entities": new_entities})
                 
                 # 7. Pattern variations for cities
                 for entity in entities:
@@ -233,15 +246,27 @@ class PIIDataset(Dataset):
                 if start == end:
                     bio_tags.append("O")
                 else:
-                    # Better alignment: use the first character of the token
-                    if start < len(char_tags):
-                        tag = char_tags[start]
-                        # If we get an I-tag but previous token was O or different entity, convert to B
-                        if len(bio_tags) > 0 and tag.startswith("I-"):
-                            prev_tag = bio_tags[-1]
-                            if prev_tag == "O" or (not prev_tag.startswith("I-") and not prev_tag.startswith("B-")):
-                                # Convert I to B if it's the start of a new entity
-                                tag = tag.replace("I-", "B-")
+                    # Improved alignment: check all characters in token span
+                    if start < len(char_tags) and end <= len(char_tags):
+                        # Count tags in this token's character span
+                        token_char_tags = char_tags[start:end]
+                        # Find the most common non-O tag in this span
+                        non_o_tags = [t for t in token_char_tags if t != "O"]
+                        if non_o_tags:
+                            # Use majority vote, or first non-O tag
+                            tag_counts = Counter(non_o_tags)
+                            tag = tag_counts.most_common(1)[0][0]
+                            
+                            # If we get an I-tag but previous token was O or different entity, convert to B
+                            if len(bio_tags) > 0 and tag.startswith("I-"):
+                                prev_tag = bio_tags[-1]
+                                prev_entity = prev_tag.split("-")[-1] if "-" in prev_tag else None
+                                curr_entity = tag.split("-")[-1] if "-" in tag else None
+                                if prev_tag == "O" or prev_entity != curr_entity:
+                                    # Convert I to B if it's the start of a new entity
+                                    tag = tag.replace("I-", "B-")
+                        else:
+                            tag = "O"
                         bio_tags.append(tag)
                     else:
                         bio_tags.append("O")
