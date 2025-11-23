@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Model outputs (keep predictions, exclude large model file)
+# out_*/
+out/model.safetensors
+
+# Documentation (not for GitHub)
+LOOM_VIDEO_SCRIPT.md
+*.pdf
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+venv/
+env/
+ENV/
+

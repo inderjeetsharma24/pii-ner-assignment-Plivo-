@@ -1,0 +1,54 @@
+{
+  "utt_0101": [
+    {
+      "start": 21,
+      "end": 24,
+      "label": "PERSON_NAME",
+      "pii": true
+    },
+    {
+      "start": 31,
+      "end": 33,
+      "label": "PERSON_NAME",
+      "pii": true
+    },
+    {
+      "start": 72,
+      "end": 77,
+      "label": "CREDIT_CARD",
+      "pii": true
+    },
+    {
+      "start": 77,
+      "end": 86,
+      "label": "CREDIT_CARD",
+      "pii": true
+    },
+    {
+      "start": 86,
+      "end": 88,
+      "label": "CREDIT_CARD",
+      "pii": true
+    }
+  ],
+  "utt_0102": [
+    {
+      "start": 15,
+      "end": 16,
+      "label": "CREDIT_CARD",
+      "pii": true
+    },
+    {
+      "start": 16,
+      "end": 18,
+      "label": "CREDIT_CARD",
+      "pii": true
+    },
+    {
+      "start": 18,
+      "end": 23,
+      "label": "CREDIT_CARD",
+      "pii": true
+    }
+  ]
+}
