@@ -24,6 +24,8 @@ def parse_args():
     ap.add_argument("--max_length", type=int, default=256)
     ap.add_argument("--use_class_weights", action="store_true", default=True)
     ap.add_argument("--eval_during_training", action="store_true", default=True)
+    ap.add_argument("--dropout", type=float, default=0.3, help="Dropout rate for regularization")
+    ap.add_argument("--early_stopping_patience", type=int, default=5, help="Stop if dev loss doesn't improve for N epochs")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     return ap.parse_args()
 
@@ -52,7 +54,7 @@ def main():
         collate_fn=lambda b: collate_batch(b, pad_token_id=tokenizer.pad_token_id),
     )
 
-    model = create_model(args.model_name)
+    model = create_model(args.model_name, dropout_rate=args.dropout)
     model.to(args.device)
     model.train()
 
@@ -88,11 +90,15 @@ def main():
         class_weights = weights.to(args.device)
         print(f"Class weights: {dict(zip(LABELS, weights.tolist()))}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.1)  # Increased weight decay
     total_steps = len(train_dl) * args.epochs
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=max(1, int(0.1 * total_steps)), num_training_steps=total_steps
     )
+
+    # Early stopping
+    best_dev_loss = float('inf')
+    patience_counter = 0
 
     for epoch in range(args.epochs):
         running_loss = 0.0
@@ -144,6 +150,21 @@ def main():
             
             avg_dev_loss = dev_loss / max(1, len(dev_dl))
             print(f"  Dev loss: {avg_dev_loss:.4f}")
+            
+            # Early stopping check
+            if avg_dev_loss < best_dev_loss:
+                best_dev_loss = avg_dev_loss
+                patience_counter = 0
+                # Save best model
+                model.save_pretrained(args.out_dir)
+                tokenizer.save_pretrained(args.out_dir)
+                print(f"  [BEST] Best model saved (dev loss: {best_dev_loss:.4f})")
+            else:
+                patience_counter += 1
+                if patience_counter >= args.early_stopping_patience:
+                    print(f"  Early stopping triggered (no improvement for {patience_counter} evaluations)")
+                    break
+            
             model.train()
 
     model.save_pretrained(args.out_dir)

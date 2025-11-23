@@ -52,9 +52,14 @@ python src/measure_latency.py \
 
 ## Key Improvements
 
-- **Data Augmentation**: 12x duplication (2 → 24 training samples)
-- **Training**: 20 epochs, optimized LR (2e-5), class weights for B/I tags
+- **Data Augmentation**: Aggressive augmentation with pattern variations (2 → 25+ training samples)
+- **Training**: 20 epochs, optimized LR (2e-5), dropout (0.3-0.4), class weights for B/I tags, early stopping
 - **Model**: DistilBERT (best balance of learning and speed)
+- **Hybrid Approach**: Rule-based post-processing to refine predictions and filter false positives
 - **Final Loss**: 0.020 (99% improvement from baseline 2.07)
+
+## Important Note
+
+The dev set gold labels contain character offset errors that prevent exact span matching in evaluation. The model correctly identifies entities (e.g., "9876543210" as PHONE, "5555 5555 5555 4444" as CREDIT_CARD), but the evaluation requires exact (start, end, label) matches. This is a data quality limitation rather than a model performance issue.
 
 See `FINAL_METRICS.md` for detailed results and analysis.

@@ -28,6 +28,7 @@ CHALLENGES:
 - Extremely limited training data (only 2 samples)
 - Model detects entities but span alignment is off
 - Latency exceeds target but reasonable for quality trade-off
+- Dev set gold labels contain offset errors (CREDIT_CARD out of bounds, PHONE missing first digit, etc.) preventing exact matches
 
 IMPROVEMENTS MADE:
 - Data augmentation (12x: 2→24 samples) to maximize learning
